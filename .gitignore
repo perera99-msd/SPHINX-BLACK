@@ -1,0 +1,18 @@
+# Dependency directories (in any subfolder)
+**/node_modules
+**/dist
+**/build
+
+# Environment variables (Security Risk!)
+.env
+.env.local
+**/.DS_Store
+
+# IDE settings
+.vscode/
+.idea/
+
+# Environment variables (Block ALL .env files in any folder)
+.env
+.env.*
+*.env
