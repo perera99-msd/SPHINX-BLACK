@@ -17,9 +17,14 @@ import Profile from './pages/Profile';
 import Collections from './pages/Collections';
 import About from './pages/About';
 
+// --- NEW PAGES ---
+import Shipping from './pages/Shipping';
+import FAQ from './pages/FAQ';
+import Legal from './pages/Legal';
+
 // Admin Pages
 import AdminLayout from './components/Admin/AdminLayout';
-import AdminLogin from './pages/Admin/AdminLogin'; // Ensure you created this file
+import AdminLogin from './pages/Admin/AdminLogin';
 import AdminDashboard from './pages/Admin/Dashboard';
 import AdminProducts from './pages/Admin/Products';
 import AdminCategories from './pages/Admin/Categories';
@@ -36,29 +41,20 @@ function App() {
   const { user } = useSelector((state) => state.auth);
   const cart = useSelector((state) => state.cart);
 
-  // 1. Scroll to top on route change
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
 
-  // 2. USER SPECIFIC CART LOGIC
   useEffect(() => {
     if (user) {
-      // User is logged in: Load THEIR specific cart
       const savedUserCart = localStorage.getItem(`cart_${user._id}`);
-      if (savedUserCart) {
-        dispatch(setCart(JSON.parse(savedUserCart)));
-      }
+      if (savedUserCart) dispatch(setCart(JSON.parse(savedUserCart)));
     } else {
-      // User is GUEST: Load guest cart
       const savedGuestCart = localStorage.getItem('cart_guest');
-      if (savedGuestCart) {
-        dispatch(setCart(JSON.parse(savedGuestCart)));
-      }
+      if (savedGuestCart) dispatch(setCart(JSON.parse(savedGuestCart)));
     }
   }, [user, dispatch]);
 
-  // 3. SAVE CART on every change
   useEffect(() => {
     if (user) {
       localStorage.setItem(`cart_${user._id}`, JSON.stringify(cart));
@@ -74,7 +70,7 @@ function App() {
       }} />
       
       <Routes>
-        {/* Public Routes (Wrapped in Main Layout) */}
+        {/* Public Routes */}
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="shop" element={<Shop />} />
@@ -86,12 +82,15 @@ function App() {
           <Route path="profile" element={<Profile />} />
           <Route path="collections" element={<Collections />} />
           <Route path="about" element={<About />} />
+          
+          {/* --- NEW FOOTER ROUTES --- */}
+          <Route path="shipping" element={<Shipping />} />
+          <Route path="faq" element={<FAQ />} />
+          <Route path="terms" element={<Legal />} />
         </Route>
 
-        {/* Admin Login (Standalone Page, No Navbar/Footer) */}
         <Route path="/admin/login" element={<AdminLogin />} />
 
-        {/* Admin Protected Routes */}
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
           <Route path="products" element={<AdminProducts />} />

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowRight, Loader } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import axios from '../../utils/axios';
+import { getImageUrl } from '../../utils/imageHelper'; // <--- IMPORT THIS
 
 const SearchOverlay = ({ isOpen, onClose }) => {
   const [query, setQuery] = useState('');
@@ -84,8 +85,9 @@ const SearchOverlay = ({ isOpen, onClose }) => {
                     className="group"
                   >
                     <div className="relative overflow-hidden aspect-[3/4] mb-4 bg-gray-900 rounded-sm">
+                      {/* --- FIX: Use getImageUrl wrapper here --- */}
                       <img 
-                        src={product.images?.[0]?.url} 
+                        src={getImageUrl(product.images?.[0]?.url)} 
                         alt={product.name} 
                         className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700"
                       />

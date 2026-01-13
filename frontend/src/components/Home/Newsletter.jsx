@@ -1,8 +1,35 @@
+// fileName: src/components/Home/Newsletter.jsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 
 const Newsletter = () => {
   const [email, setEmail] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+
+    // Elegant toast notification
+    toast.success("Application received.", {
+      style: {
+        background: '#111',
+        color: '#C5A059', // Sphynx Gold text
+        border: '1px solid #333',
+        borderRadius: '0px',
+        fontFamily: 'sans-serif',
+        letterSpacing: '1px',
+        fontSize: '12px',
+        textTransform: 'uppercase'
+      },
+      iconTheme: {
+        primary: '#C5A059',
+        secondary: '#000',
+      },
+    });
+
+    setEmail('');
+  };
 
   return (
     <section className="py-32 bg-sphynx-black border-t border-white/5">
@@ -20,7 +47,7 @@ const Newsletter = () => {
             Join our exclusive list for early access to limited edition drops, private sales, and curations.
           </p>
 
-          <form className="flex flex-col md:flex-row gap-0">
+          <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-0">
             <input
               type="email"
               value={email}

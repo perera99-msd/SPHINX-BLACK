@@ -1,9 +1,36 @@
 // fileName: src/components/Layout/Footer.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
+  const [email, setEmail] = useState('');
+
+  const handleSubscribe = (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    
+    // Luxury styled toast
+    toast.success("Welcome to the list.", {
+      style: {
+        background: '#111',
+        color: '#fff',
+        border: '1px solid #333',
+        borderRadius: '0px',
+        fontFamily: 'sans-serif',
+        letterSpacing: '1px',
+        fontSize: '12px',
+        textTransform: 'uppercase'
+      },
+      iconTheme: {
+        primary: '#C5A059',
+        secondary: '#000',
+      },
+    });
+    
+    setEmail('');
+  };
 
   return (
     <footer className="bg-sphynx-black text-white pt-32 pb-6 border-t border-white/5 relative overflow-hidden">
@@ -40,10 +67,17 @@ const Footer = () => {
 
           <div className="space-y-6">
              <h4 className="text-xs uppercase tracking-[0.2em] text-sphynx-gold">Newsletter</h4>
-             <div className="flex border-b border-white/20 pb-2">
-                <input type="email" placeholder="EMAIL ADDRESS" className="w-full bg-transparent outline-none text-sm placeholder:text-gray-700 tracking-widest uppercase" />
-                <button className="text-xs uppercase hover:text-sphynx-gold transition-colors">Subscribe</button>
-             </div>
+             {/* Changed div to form to handle "Enter" keypress */}
+             <form onSubmit={handleSubscribe} className="flex border-b border-white/20 pb-2">
+                <input 
+                  type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="EMAIL ADDRESS" 
+                  className="w-full bg-transparent outline-none text-sm placeholder:text-gray-700 tracking-widest uppercase" 
+                />
+                <button type="submit" className="text-xs uppercase hover:text-sphynx-gold transition-colors">Subscribe</button>
+             </form>
           </div>
         </div>
 
