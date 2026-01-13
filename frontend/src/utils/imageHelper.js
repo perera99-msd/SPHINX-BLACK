@@ -1,7 +1,7 @@
 // src/utils/imageHelper.js
 
 // CHANGE THIS to your actual backend URL if different
-const BASE_URL = 'http://localhost:5000'; 
+const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'; 
 
 export const getImageUrl = (path) => {
   if (!path) return '';
