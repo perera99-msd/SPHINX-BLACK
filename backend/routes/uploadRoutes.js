@@ -1,15 +1,33 @@
+// routes/uploadRoutes.js
 const express = require('express');
 const router = express.Router();
-const upload = require('../middleware/uploadMiddleware');
+const multer = require('multer');
+const { v2: cloudinary } = require('cloudinary');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const path = require('path');
 
-// @route POST /api/upload
+// 1. Config Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// 2. Setup Storage Engine
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'sphynx-uploads', // The folder name in Cloudinary
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+  },
+});
+
+const upload = multer({ storage });
+
+// 3. Upload Route
 router.post('/', upload.single('image'), (req, res) => {
-  if (req.file) {
-    // Return path relative to server root
-    res.send(`/${req.file.path.replace(/\\/g, '/')}`);
-  } else {
-    res.status(400).send('No file uploaded');
-  }
+  // Cloudinary returns the path in req.file.path
+  res.send(req.file.path);
 });
 
 module.exports = router;
