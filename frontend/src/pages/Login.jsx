@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { loginStart, loginSuccess, loginFailure } from '../redux/slices/authSlice';
 import axios from '../utils/axios'; 
@@ -11,7 +11,11 @@ const Login = () => {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { loading } = useSelector(state => state.auth);
+
+  // Check if we need to redirect back to a specific page (like Checkout)
+  const from = location.state?.from?.pathname || '/profile';
 
   const onSubmit = async (data) => {
     dispatch(loginStart());
@@ -21,17 +25,17 @@ const Login = () => {
         password: data.password
       });
 
-      // --- STRICT SEPARATION LOGIC ---
       if (res.data.role === 'admin') {
         dispatch(loginFailure('Invalid Portal'));
         toast.error('Admins must use the Admin Portal.');
-        return; // Stop execution
+        return;
       }
-      // -------------------------------
 
       dispatch(loginSuccess(res.data));
       toast.success('Welcome back.');
-      navigate('/profile'); 
+      
+      // Navigate to where they came from (or profile)
+      navigate(from, { replace: true });
 
     } catch (err) {
       console.error(err);

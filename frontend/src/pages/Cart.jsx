@@ -1,7 +1,8 @@
+// src/pages/Cart.jsx
 import React from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom'; // Ensure Link is imported
 import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag } from 'lucide-react';
 import { removeFromCart, updateQuantity, clearCart } from '../redux/slices/cartSlice';
 import toast from 'react-hot-toast';
@@ -158,9 +159,13 @@ const Cart = () => {
                 </div>
               </div>
 
-              <button className="w-full py-4 bg-sphynx-gold text-black rounded-lg font-bold hover:bg-yellow-500 transition mb-4">
+              {/* --- FIX: ADD LINK TO CHECKOUT --- */}
+              <Link 
+                to="/checkout"
+                className="block w-full text-center py-4 bg-sphynx-gold text-black rounded-lg font-bold hover:bg-white transition mb-4"
+              >
                 Proceed to Checkout
-              </button>
+              </Link>
 
               <p className="text-gray-400 text-sm text-center">
                 Free shipping on orders over $200
