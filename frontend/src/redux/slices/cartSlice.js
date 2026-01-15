@@ -1,3 +1,4 @@
+// src/redux/slices/cartSlice.js
 import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
@@ -14,12 +15,21 @@ const cartSlice = createSlice({
       const newItem = action.payload;
       const existingItem = state.items.find(item => item.id === newItem.id && item.size === newItem.size);
       
+      const maxStock = newItem.maxStock || 99; // Fallback if not provided
+
       if (existingItem) {
-        existingItem.quantity += newItem.quantity || 1;
+        // Enforce stock limit
+        const totalAfterAdd = existingItem.quantity + (newItem.quantity || 1);
+        if (totalAfterAdd <= maxStock) {
+            existingItem.quantity += newItem.quantity || 1;
+        } else {
+            existingItem.quantity = maxStock; // Cap at max
+        }
       } else {
         state.items.push({
           ...newItem,
-          quantity: newItem.quantity || 1
+          quantity: Math.min(newItem.quantity || 1, maxStock),
+          maxStock: maxStock // Store this for later
         });
       }
       
@@ -41,7 +51,13 @@ const cartSlice = createSlice({
       const item = state.items.find(item => item.id === id);
       
       if (item) {
-        item.quantity = Math.max(1, quantity);
+        // Enforce maxStock check here as well
+        const limit = item.maxStock || 99;
+        if (quantity > limit) {
+             item.quantity = limit;
+        } else {
+             item.quantity = Math.max(1, quantity);
+        }
       }
       
       state.totalQuantity = state.items.reduce((total, item) => total + item.quantity, 0);
@@ -54,7 +70,6 @@ const cartSlice = createSlice({
       state.totalAmount = 0;
     },
 
-    // USER SPECIFIC CART REDUCER
     setCart: (state, action) => {
       state.items = action.payload.items || [];
       state.totalQuantity = action.payload.totalQuantity || 0;
@@ -63,7 +78,6 @@ const cartSlice = createSlice({
   },
 });
 
-// Export ALL actions including updateQuantity and setCart
 export const { 
   addToCart, 
   removeFromCart, 

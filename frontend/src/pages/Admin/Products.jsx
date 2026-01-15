@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Search, Edit, Trash2, Plus, X, Check, Upload, Image as ImageIcon } from 'lucide-react';
 import axios from '../../utils/axios';
-import { getImageUrl } from '../../utils/imageHelper'; // <--- Ensures images load correctly
+import { getImageUrl } from '../../utils/imageHelper';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -33,14 +33,13 @@ const Products = () => {
   useEffect(() => { fetchData(); }, []);
 
   const handleDelete = async (id) => {
-    if (window.confirm('Delete this product? This will remove associated images from the server.')) {
+    if (window.confirm('Delete this product?')) {
       try {
         await axios.delete(`/products/${id}`);
         setProducts(products.filter(p => p._id !== id));
-        toast.success('Product and files deleted');
+        toast.success('Product deleted');
       } catch (err) { 
         toast.error('Delete failed'); 
-        console.error(err);
       }
     }
   };
@@ -108,7 +107,7 @@ const Products = () => {
             <tr>
               <th className="p-4">Product</th>
               <th className="p-4">Price</th>
-              <th className="p-4">Stock</th>
+              <th className="p-4">Total Stock</th>
               <th className="p-4">Flags</th>
               <th className="p-4 text-right">Actions</th>
             </tr>
@@ -118,7 +117,6 @@ const Products = () => {
               <tr key={p._id} className="hover:bg-gray-800/30">
                 <td className="p-4 flex items-center gap-3">
                   <div className="w-12 h-12 bg-black rounded overflow-hidden border border-gray-700">
-                    {/* Use getImageUrl to handle both Uploads and External URLs */}
                     <img 
                       src={getImageUrl(p.images?.[0]?.url) || '/placeholder.jpg'} 
                       alt="" 
@@ -167,45 +165,63 @@ const Products = () => {
 
 // --- PRODUCT MODAL ---
 const ProductModal = ({ product, categories, onClose, onSave }) => {
+  // Logic to migrate old products to default "Large" size in the UI
+  const initialInventory = product?.inventory?.length > 0 
+    ? product.inventory 
+    : product?.stock > 0 
+      ? [{ size: 'L', quantity: product.stock }] // Default legacy stock to Large
+      : [];
+
   const [form, setForm] = useState({
     name: product?.name || '',
     slug: product?.slug || '',
     price: product?.price || '',
     discountPrice: product?.discountPrice || '',
-    stock: product?.stock || '',
     category: product?.category?._id || product?.category || (categories[0]?._id || ''),
     description: product?.description || '',
     featured: product?.featured || false,
     newArrival: product?.newArrival || false,
     sale: product?.sale || false,
-    bestSeller: product?.bestSeller || false
+    bestSeller: product?.bestSeller || false,
+    // Composition & Care
+    material: product?.specifications?.material || '',
+    origin: product?.specifications?.origin || '',
+    care: product?.specifications?.care || ''
   });
 
   const [images, setImages] = useState(product?.images || []);
   const [manualUrl, setManualUrl] = useState('');
+  
+  // INVENTORY STATE
+  const [inventory, setInventory] = useState(initialInventory);
+  const availableSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
-  // 1. Handle File Upload (Browse from Computer)
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    
-    // Create preview URLs for selected files
-    const newImages = files.map(file => ({
-      url: URL.createObjectURL(file), // Temp preview
-      file: file, // Actual file to upload later
-      alt: file.name
-    }));
-
-    setImages(prev => [...prev, ...newImages]);
-    toast.success(`${files.length} image(s) added`);
+  const handleInventoryChange = (size, qty) => {
+    const qtyNum = parseInt(qty) || 0;
+    setInventory(prev => {
+      const existing = prev.find(i => i.size === size);
+      if (existing) {
+        if (qtyNum === 0) return prev.filter(i => i.size !== size); // Remove if 0
+        return prev.map(i => i.size === size ? { ...i, quantity: qtyNum } : i);
+      }
+      return [...prev, { size, quantity: qtyNum }];
+    });
   };
 
-  // 2. Handle Manual URL (Copy-Paste)
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    const newImages = files.map(file => ({
+      url: URL.createObjectURL(file), 
+      file: file, 
+      alt: file.name
+    }));
+    setImages(prev => [...prev, ...newImages]);
+  };
+
   const handleAddUrl = () => {
     if (!manualUrl) return;
-    // Add as a simple object. No 'file' property means it's an external URL.
     setImages(prev => [...prev, { url: manualUrl, alt: 'Product Image' }]);
     setManualUrl('');
-    toast.success('Image URL added');
   };
 
   const removeImage = (index) => {
@@ -214,29 +230,24 @@ const ProductModal = ({ product, categories, onClose, onSave }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const loadingToast = toast.loading('Processing images...');
+    const loadingToast = toast.loading('Saving artifact...');
 
     try {
-      // 3. Process Images: Upload files if needed, keep URLs if not
+      // Process Images
       const processedImages = await Promise.all(
         images.map(async (img) => {
-          // Case A: It's a raw file (needs upload)
           if (img.file) {
             const formData = new FormData();
             formData.append('image', img.file);
-            
             try {
               const { data } = await axios.post('/upload', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
               });
-              // Return the path from server (e.g., /uploads/img-123.jpg)
               return { url: data, alt: img.alt || form.name };
             } catch (err) {
-              console.error('Image upload failed', err);
               return null;
             }
           }
-          // Case B: It's already a URL (External or previously uploaded)
           return { url: img.url, alt: img.alt || form.name };
         })
       );
@@ -246,7 +257,13 @@ const ProductModal = ({ product, categories, onClose, onSave }) => {
       const payload = {
         ...form,
         slug: form.slug || form.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, ''),
-        images: validImages
+        images: validImages,
+        inventory: inventory, // Send array of {size, quantity}
+        specifications: {
+          material: form.material,
+          origin: form.origin,
+          care: form.care
+        }
       };
 
       await onSave(payload);
@@ -255,15 +272,13 @@ const ProductModal = ({ product, categories, onClose, onSave }) => {
     } catch (error) {
       toast.dismiss(loadingToast);
       toast.error('Failed to save product');
-      console.error(error);
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl">
         
-        {/* Modal Header */}
         <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-900 sticky top-0 z-10">
           <div>
             <h2 className="text-xl font-display font-bold text-white">{product ? 'Edit Product' : 'New Product'}</h2>
@@ -291,13 +306,8 @@ const ProductModal = ({ product, categories, onClose, onSave }) => {
                 <label className="text-xs uppercase text-gray-500 block mb-2">Discount ($)</label>
                 <input type="number" value={form.discountPrice} onChange={e => setForm({...form, discountPrice: e.target.value})} className="w-full bg-black border border-gray-700 p-3 rounded text-white focus:border-sphynx-gold outline-none" />
               </div>
-              
-              <div>
-                <label className="text-xs uppercase text-gray-500 block mb-2">Stock</label>
-                <input type="number" required value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="w-full bg-black border border-gray-700 p-3 rounded text-white focus:border-sphynx-gold outline-none" />
-              </div>
-              
-              <div>
+
+              <div className="col-span-2">
                 <label className="text-xs uppercase text-gray-500 block mb-2">Category</label>
                 <select required value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="w-full bg-black border border-gray-700 p-3 rounded text-white focus:border-sphynx-gold outline-none">
                   <option value="" disabled>Select</option>
@@ -308,11 +318,49 @@ const ProductModal = ({ product, categories, onClose, onSave }) => {
 
             <div>
               <label className="text-xs uppercase text-gray-500 block mb-2">Description</label>
-              <textarea rows="4" value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-black border border-gray-700 p-3 rounded text-white focus:border-sphynx-gold outline-none" />
+              <textarea rows="3" value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-black border border-gray-700 p-3 rounded text-white focus:border-sphynx-gold outline-none" />
             </div>
 
-            {/* Toggles */}
-            <div className="grid grid-cols-2 gap-4 p-4 bg-black rounded-lg border border-gray-800">
+            {/* --- INVENTORY SECTION --- */}
+            <div className="bg-black border border-gray-800 p-4 rounded-xl">
+              <label className="text-xs uppercase text-sphynx-gold block mb-4 tracking-widest">Inventory by Size</label>
+              <div className="grid grid-cols-3 gap-4">
+                {availableSizes.map(size => {
+                  const currentQty = inventory.find(i => i.size === size)?.quantity || '';
+                  return (
+                    <div key={size} className="flex flex-col">
+                      <label className="text-[10px] uppercase text-gray-500 mb-1">Size {size}</label>
+                      <input 
+                        type="number" 
+                        min="0"
+                        placeholder="0"
+                        value={currentQty} 
+                        onChange={(e) => handleInventoryChange(size, e.target.value)}
+                        className={`w-full bg-gray-900 border p-2 rounded text-white text-center outline-none ${currentQty > 0 ? 'border-sphynx-gold' : 'border-gray-700'}`} 
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-500 mt-3 text-right">
+                Total Stock: {inventory.reduce((acc, curr) => acc + curr.quantity, 0)}
+              </p>
+            </div>
+
+            {/* --- COMPOSITION & CARE --- */}
+            <div className="bg-black border border-gray-800 p-4 rounded-xl space-y-3">
+              <label className="text-xs uppercase text-sphynx-gold block mb-2 tracking-widest">Specifications</label>
+              <input placeholder="Material (e.g. 100% Organic Cotton)" value={form.material} onChange={e => setForm({...form, material: e.target.value})} className="w-full bg-gray-900 border border-gray-700 p-2 rounded text-white text-sm outline-none" />
+              <input placeholder="Origin (e.g. Made in Italy)" value={form.origin} onChange={e => setForm({...form, origin: e.target.value})} className="w-full bg-gray-900 border border-gray-700 p-2 rounded text-white text-sm outline-none" />
+              <input placeholder="Care (e.g. Dry Clean Only)" value={form.care} onChange={e => setForm({...form, care: e.target.value})} className="w-full bg-gray-900 border border-gray-700 p-2 rounded text-white text-sm outline-none" />
+            </div>
+
+          </div>
+
+          {/* RIGHT COLUMN: Images & Toggles */}
+          <div className="space-y-6">
+             {/* Toggles */}
+             <div className="grid grid-cols-2 gap-4 p-4 bg-black rounded-lg border border-gray-800">
                {['featured', 'newArrival', 'sale', 'bestSeller'].map(field => (
                  <label key={field} className="flex items-center gap-3 cursor-pointer group">
                     <div className={`w-5 h-5 border rounded flex items-center justify-center transition-colors ${form[field] ? 'bg-sphynx-gold border-sphynx-gold' : 'border-gray-600'}`}>
@@ -323,10 +371,7 @@ const ProductModal = ({ product, categories, onClose, onSave }) => {
                  </label>
                ))}
             </div>
-          </div>
 
-          {/* RIGHT COLUMN: Image Management */}
-          <div className="space-y-6">
             <div className="flex justify-between items-end">
                <label className="text-xs uppercase text-gray-500">Media Gallery</label>
                <span className="text-xs text-gray-600">{images.length} items</span>
@@ -352,13 +397,13 @@ const ProductModal = ({ product, categories, onClose, onSave }) => {
                </div>
             </div>
 
-            {/* URL Input Area (For Copy-Paste) */}
-            <div className="flex gap-2">
+             {/* URL Input */}
+             <div className="flex gap-2">
                <input 
                  value={manualUrl}
                  onChange={e => setManualUrl(e.target.value)}
                  className="flex-grow bg-black border border-gray-700 px-4 py-2 rounded text-sm text-white outline-none focus:border-sphynx-gold"
-                 placeholder="Or paste image URL (https://...)"
+                 placeholder="Or paste image URL"
                />
                <button type="button" onClick={handleAddUrl} className="bg-gray-800 text-white px-4 py-2 rounded text-xs uppercase font-bold hover:bg-gray-700">Add</button>
             </div>
@@ -367,31 +412,12 @@ const ProductModal = ({ product, categories, onClose, onSave }) => {
             <div className="grid grid-cols-3 gap-3 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
                {images.map((img, idx) => (
                  <div key={idx} className="relative aspect-square group border border-gray-800 rounded-lg overflow-hidden">
-                    {/* Preview Image: Uses getImageUrl to handle local/external */}
-                    <img 
-                      src={getImageUrl(img.url)} 
-                      alt="preview" 
-                      className="w-full h-full object-cover" 
-                    />
-                    
-                    {/* Delete Overlay */}
+                    <img src={getImageUrl(img.url)} alt="preview" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                       <button 
-                         type="button" 
-                         onClick={() => removeImage(idx)} 
-                         className="p-2 bg-red-900/80 text-white rounded-full hover:bg-red-600 transition"
-                       >
-                         <Trash2 size={16} />
-                       </button>
-                    </div>
-                    
-                    {/* Index Badge */}
-                    <div className="absolute top-1 left-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded">
-                       {idx + 1}
+                       <button type="button" onClick={() => removeImage(idx)} className="p-2 bg-red-900/80 text-white rounded-full hover:bg-red-600 transition"><Trash2 size={16} /></button>
                     </div>
                  </div>
                ))}
-               
                {images.length === 0 && (
                  <div className="col-span-3 py-8 text-center border border-dashed border-gray-800 rounded-lg">
                     <ImageIcon size={24} className="mx-auto text-gray-600 mb-2" />
@@ -401,12 +427,9 @@ const ProductModal = ({ product, categories, onClose, onSave }) => {
             </div>
           </div>
 
-          {/* Footer Actions */}
           <div className="col-span-1 lg:col-span-2 flex justify-end gap-3 pt-6 border-t border-gray-800">
             <button type="button" onClick={onClose} className="px-6 py-3 rounded text-gray-400 hover:text-white">Cancel</button>
-            <button type="submit" className="px-8 py-3 bg-sphynx-gold text-black font-bold uppercase tracking-widest rounded hover:bg-white transition shadow-[0_0_20px_rgba(197,160,89,0.2)] hover:shadow-[0_0_30px_rgba(197,160,89,0.4)]">
-              Save Product
-            </button>
+            <button type="submit" className="px-8 py-3 bg-sphynx-gold text-black font-bold uppercase tracking-widest rounded hover:bg-white transition">Save Product</button>
           </div>
 
         </form>
